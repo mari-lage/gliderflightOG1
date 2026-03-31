@@ -232,6 +232,7 @@ def regress_all_vec(
             indices = list(range(3)) + [best_idx] + list(range(len(df) - 3, len(df)))
             indices = sorted(list(set(indices)))  # Remove duplicates and sort
             display_df = df.iloc[indices].copy()
+            display_df["Iter"] = display_df["Iter"].astype(str)
             display_df.loc[best_idx, "Iter"] = f"{best_idx}*"  # Mark best
 
         print(display_df.to_string(index=False, float_format="%.4g"))
