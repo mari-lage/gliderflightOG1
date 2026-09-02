@@ -177,3 +177,4 @@ cython_debug/
 # Claude Code files
 CLAUDE.md
 .claude/*
+data/sg271_pycnmix_demo.nc
