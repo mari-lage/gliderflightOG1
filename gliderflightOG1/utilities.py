@@ -318,25 +318,55 @@ def safe_update_attrs(
     return ds
 
 
-def construct_2dgrid(x, y, v, xi=1, yi=1, x_bin_center: bool = True, y_bin_center: bool = True, agg: str = 'median'):
+def regular_grid(data, res):
+    """
+    Create bin edges for a regular grid such that multiples of `res` fall on
+    bin centers. For example, with res=5 the edges are [-2.5, 2.5, 7.5, ...]
 
+    Parameters
+    ----------
+    data : array-like
+        Input data used to determine the grid range.
+    res : float
+        Grid resolution (bin width).
+
+    Returns
+    -------
+    numpy.ndarray
+        Bin edges for the regular grid.
+    """
+    d_min = np.floor(np.nanmin(data) / res) * res + res / 2
+    d_max = np.ceil(np.nanmax(data) / res) * res - res / 2
+    return np.arange(d_min, d_max + res + 1, res)
+
+
+def construct_2dgrid(
+    x,
+    y,
+    v,
+    xi=1,
+    yi=1,
+    x_bin_center: bool = True,
+    y_bin_center: bool = True,
+    agg: str = "median",
+):
     """
     Constructs a 2D gridded representation of input data based on specified resolutions. The function takes in x, y, and v data,
     and generates a grid where each cell contains the aggregated value (e.g., mean, median) of v corresponding to the x and y coordinates.
-    If the input data is already binned and you want the grid coordinates to align with the original bin edges, set `x_bin_center` and `y_bin_center` to False and the 
+    If the input data is already binned and you want the grid coordinates to align with the original bin edges, set `x_bin_center` and `y_bin_center` to False and the
     resolution (i.e. xi and yi) to the bin size.
 
     Parameters
     ----------
-    x : array-like  
-        Input data representing the x-dimension.  
-    y : array-like  
-        Input data representing the y-dimension.  
-    v : array-like  
-        Input data representing the z-dimension (values to be gridded).  
-    xi : int or float, optional, default=1  
-        Resolution for the x-dimension grid spacing.  
-    yi : int or float, optional, default=1  
+    x : array-like
+        Input data representing the x-dimension.
+    y : array-like
+        Input data representing the y-dimension.
+    v : array-like
+        Input data representing the z-dimension (values to be gridded).
+    xi : int or float, optional, default=1
+        Resolution for the x-dimension grid spacing.
+    yi : int or float, optional, default=1
         Resolution for the y-dimension grid spacing.
     x_bin_center : bool, optional, default=True
         If True, the x-coordinate grid (`XI`) corresponds to the **center** of each x-bin.
@@ -351,34 +381,41 @@ def construct_2dgrid(x, y, v, xi=1, yi=1, x_bin_center: bool = True, y_bin_cente
 
     Returns
     -------
-    grid : numpy.ndarray  
-        Gridded representation of the z-values over the x and y space.  
-    XI : numpy.ndarray  
-        Gridded x-coordinates corresponding to the specified resolution.  
-    YI : numpy.ndarray  
-        Gridded y-coordinates corresponding to the specified resolution. 
+    grid : numpy.ndarray
+        Gridded representation of the z-values over the x and y space.
+    XI : numpy.ndarray
+        Gridded x-coordinates corresponding to the specified resolution.
+    YI : numpy.ndarray
+        Gridded y-coordinates corresponding to the specified resolution.
 
     Notes
     -----
     Original Author: Bastien Queste
     [Source Code](https://github.com/bastienqueste/gliderad2cp/blob/de0652f70f4768c228f83480fa7d1d71c00f9449/gliderad2cp/process_adcp.py#L140)
-    
+
     Modified by Till Moritz: added the aggregation parameter and the option to chose either bin center or bin edge as the grid coordinates.
     """
     if np.size(xi) == 1:
-        xi = np.arange(np.nanmin(x), np.nanmax(x) + xi+1, xi)
+        xi = np.arange(np.nanmin(x), np.nanmax(x) + xi + 1, xi)
     if np.size(yi) == 1:
-        yi = np.arange(np.nanmin(y), np.nanmax(y) + yi+1, yi)
+        yi = np.arange(np.nanmin(y), np.nanmax(y) + yi + 1, yi)
 
-    raw = pd.DataFrame({'x': x, 'y': y, 'v': v}).dropna()
-    grid = np.full([len(xi)-1, len(yi)-1], np.nan)
+    raw = pd.DataFrame({"x": x, "y": y, "v": v}).dropna()
+    grid = np.full([len(xi) - 1, len(yi) - 1], np.nan)
 
-    raw['xbins'], xbin_iter = pd.cut(raw.x, xi, retbins=True, labels=False, include_lowest=True, right=False)
-    raw['ybins'], ybin_iter = pd.cut(raw.y, yi, retbins=True, labels=False, include_lowest=True, right=False)
+    raw["xbins"], xbin_iter = pd.cut(
+        raw.x, xi, retbins=True, labels=False, include_lowest=True, right=False
+    )
+    raw["ybins"], ybin_iter = pd.cut(
+        raw.y, yi, retbins=True, labels=False, include_lowest=True, right=False
+    )
 
-    raw = raw.dropna(subset=['xbins', 'ybins'])  # Remove out-of-bound rows
-    _tmp = raw.groupby(['xbins', 'ybins'])['v'].agg(agg)
-    grid[_tmp.index.get_level_values(0).astype(int), _tmp.index.get_level_values(1).astype(int)] = _tmp.values
+    raw = raw.dropna(subset=["xbins", "ybins"])  # Remove out-of-bound rows
+    _tmp = raw.groupby(["xbins", "ybins"])["v"].agg(agg)
+    grid[
+        _tmp.index.get_level_values(0).astype(int),
+        _tmp.index.get_level_values(1).astype(int),
+    ] = _tmp.values
     # Match XI and YI shape to grid using bin centers
     if x_bin_center:
         xi = xi[:-1] + np.diff(xi) / 2
